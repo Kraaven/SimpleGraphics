@@ -10,6 +10,8 @@ public class Core
 {
     private static IWindow _window;
     private static GL _gl;
+    private static uint _vao;
+    private static uint _vbo;
     private static Random _random = new Random();
 
     private static int _index = 0;
@@ -34,7 +36,7 @@ public class Core
         _window.Run();
     }
 
-    private static void OnLoad()
+    private static unsafe void OnLoad()
     {
         //Input Binding
         IInputContext input = _window.CreateInput();
@@ -43,9 +45,26 @@ public class Core
         //Window OpenGL stuff
         _gl = _window.CreateOpenGL();
         _gl.ClearColor(Color.CornflowerBlue);
+        
+        _vao = _gl.GenVertexArray();
+        _gl.BindVertexArray(_vao);
+        
+        float[] vertices =
+        {
+            0.5f,  0.5f, 0.0f,
+            0.5f, -0.5f, 0.0f,
+            -0.5f, -0.5f, 0.0f,
+            -0.5f,  0.5f, 0.0f
+        };
+        
+        _vbo = _gl.GenBuffer();
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+
+        fixed (float* buf = vertices)
+            _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint) (vertices.Length * sizeof(float)), buf, BufferUsageARB.StaticDraw);
     }
 
-    private static void OnUpdate(double deltaTime)
+    private static unsafe void OnUpdate(double deltaTime)
     {
         if (_index == 20)
         {
@@ -55,12 +74,12 @@ public class Core
         else _index++;
     }
 
-    private static void OnRender(double deltaTime)
+    private static unsafe void OnRender(double deltaTime)
     {
         _gl.Clear(ClearBufferMask.ColorBufferBit);
     }
 
-    private static void KeyDown(IKeyboard keyboard, Key key, int keyCode)
+    private static unsafe void KeyDown(IKeyboard keyboard, Key key, int keyCode)
     {
         if(key == Key.Escape) _window.Close();
     }
