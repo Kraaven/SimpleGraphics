@@ -1,160 +1,128 @@
-﻿using System;
-using System.Drawing;
-using System.Numerics;
-using Silk.NET.Input;
-using Silk.NET.Maths;
+﻿using Silk.NET.Input;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
+using System;
+using System.Numerics;
+using Silk.NET.Maths;
 
-public class Core
-{
-    private static IWindow _window;
-    private static GL _gl;
-    private static uint _vao;
-    private static uint _vbo;
-    private static uint _ebo;
-    private static Random _random = new Random();
-    private static uint _program;
-
-    private static int _index = 0;
-    
-    public static void Main()
+    class Core
     {
+        private static IWindow window;
+        private static GL Gl;
+
+        //Our new abstracted objects, here we specify what the types are.
+        private static BufferObject<float> Vbo;
+        private static BufferObject<uint> Ebo;
+        private static VertexArrayObject<float, uint> Vao;
         
-        //Window Creation
-        WindowOptions options = WindowOptions.Default with
+        private static Shader Shader;
+
+        private static Vector2 PlayerPosition = new Vector2(0, 0);
+
+        private static readonly float[] Vertices =
         {
-            Size = new Vector2D<int>(1600, 1000),
-            Title = "Simple Graphics Renderer"
+            //X    Y      Z     S    T
+             1.0f,  1.0f, 0.0f, 1.0f, 0.0f,
+             1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f,  1.0f, 0.0f, 0.0f, 0.0f
         };
-        _window = Window.Create(options);
-        
-        //Window Subscribed runtime functions
-        _window.Load += OnLoad;
-        _window.Update += OnUpdate;
-        _window.Render += OnRender;
 
-        //Window execution
-        _window.Run();
-    }
-
-    private static unsafe void OnLoad()
-    {
-        //Input Binding
-        IInputContext input = _window.CreateInput();
-        for (int i = 0; i < input.Keyboards.Count; i++) input.Keyboards[i].KeyDown += KeyDown;
-        
-        //Window OpenGL stuff
-        _gl = _window.CreateOpenGL();
-        _gl.ClearColor(Color.CornflowerBlue);
-        
-        _vao = _gl.GenVertexArray();
-        _gl.BindVertexArray(_vao);
-        
-        float[] vertices =
+        private static readonly uint[] Indices =
         {
-            0.5f,  0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            -0.5f, -0.5f, 0.0f,
-            -0.5f,  0.5f, 0.0f
+            0, 1, 3,
+            1, 2, 3
         };
-        
-        _vbo = _gl.GenBuffer();
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
 
-        fixed (float* buf = vertices)
-            _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint) (vertices.Length * sizeof(float)), buf, BufferUsageARB.StaticDraw);
-        
-        uint[] indices =
+
+        private static void Main(string[] args)
         {
-            0u, 1u, 3u,
-            1u, 2u, 3u
-        };
-        
-        _ebo = _gl.GenBuffer();
-        _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, _ebo);
-        
-        fixed (uint* buf = indices)
-            _gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint) (indices.Length * sizeof(uint)), buf, BufferUsageARB.StaticDraw);
-        
-        const string vertexCode = @"
-#version 330 core
+            var options = WindowOptions.Default;
+            options.Size = new Vector2D<int>(800, 600);
+            options.Title = "LearnOpenGL with Silk.NET";
+            window = Window.Create(options);
 
-layout (location = 0) in vec3 aPosition;
+            window.Load += OnLoad;
+            window.Render += OnRender;
+            window.FramebufferResize += OnFramebufferResize;
+            window.Closing += OnClose;
 
-void main()
-{
-    gl_Position = vec4(aPosition, 1.0);
-}";
-        
-        const string fragmentCode = @"
-#version 330 core
+            window.Run();
 
-out vec4 out_color;
-
-void main()
-{
-    out_color = vec4(1.0, 0.5, 0.2, 1.0);
-}";
-        uint vertexShader = _gl.CreateShader(ShaderType.VertexShader);
-        _gl.ShaderSource(vertexShader, vertexCode);
-        
-        _gl.CompileShader(vertexShader);
-
-        _gl.GetShader(vertexShader, ShaderParameterName.CompileStatus, out int vStatus);
-        if (vStatus != (int) GLEnum.True)
-            throw new Exception("Vertex shader failed to compile: " + _gl.GetShaderInfoLog(vertexShader));
-        
-        uint fragmentShader = _gl.CreateShader(ShaderType.FragmentShader);
-        _gl.ShaderSource(fragmentShader, fragmentCode);
-
-        _gl.CompileShader(fragmentShader);
-
-        _gl.GetShader(fragmentShader, ShaderParameterName.CompileStatus, out int fStatus);
-        if (fStatus != (int) GLEnum.True)
-            throw new Exception("Fragment shader failed to compile: " + _gl.GetShaderInfoLog(fragmentShader));
-        
-        _program = _gl.CreateProgram();
-        _gl.AttachShader(_program, vertexShader);
-        _gl.AttachShader(_program, fragmentShader);
-
-        _gl.LinkProgram(_program);
-
-        _gl.GetProgram(_program, ProgramPropertyARB.LinkStatus, out int lStatus);
-        if (lStatus != (int) GLEnum.True)
-            throw new Exception("Program failed to link: " + _gl.GetProgramInfoLog(_program));
-        
-        _gl.DetachShader(_program, vertexShader);
-        _gl.DetachShader(_program, fragmentShader);
-        _gl.DeleteShader(vertexShader);
-        _gl.DeleteShader(fragmentShader);
-        
-        const uint positionLoc = 0;
-        _gl.EnableVertexAttribArray(positionLoc);
-        _gl.VertexAttribPointer(positionLoc, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), (void*) 0);
-        
-        _gl.BindVertexArray(0);
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, 0);
-        _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, 0);
-    }
-
-    private static unsafe void OnUpdate(double deltaTime)
-    {
-        if (_index == 20)
-        {
-            _gl.ClearColor(Color.FromArgb(1, _random.Next() % 255, _random.Next() % 255, _random.Next() % 255));
-            _index = 0;
+            window.Dispose();
         }
-        else _index++;
-    }
 
-    private static unsafe void OnRender(double deltaTime)
-    {
-        _gl.Clear(ClearBufferMask.ColorBufferBit);
-    }
 
-    private static unsafe void KeyDown(IKeyboard keyboard, Key key, int keyCode)
-    {
-        if(key == Key.Escape) _window.Close();
+        private static void OnLoad()
+        {
+            IInputContext input = window.CreateInput();
+            for (int i = 0; i < input.Keyboards.Count; i++)
+            {
+                input.Keyboards[i].KeyDown += KeyDown;
+            }
+
+            Gl = GL.GetApi(window);
+
+            //Instantiating our new abstractions
+            Ebo = new BufferObject<uint>(Gl, Indices, BufferTargetARB.ElementArrayBuffer);
+            Vbo = new BufferObject<float>(Gl, Vertices, BufferTargetARB.ArrayBuffer);
+            Vao = new VertexArrayObject<float, uint>(Gl, Vbo, Ebo);
+
+            //Telling the VAO object how to lay out the attribute pointers
+            Vao.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, 5, 0);
+            Vao.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, 5, 3);
+
+            Shader = new Shader(Gl, "Resources/shader.vert", "Resources/shader.frag");
+        }
+
+        private static unsafe void OnRender(double obj)
+        {
+            Gl.Clear((uint) ClearBufferMask.ColorBufferBit);
+
+            //Binding and using our VAO and shader.
+            Vao.Bind();
+            Shader.Use();
+            
+            Shader.SetUniform("PlayerPosition", PlayerPosition);
+            
+            Gl.DrawElements(PrimitiveType.Triangles, (uint) Indices.Length, DrawElementsType.UnsignedInt, null);
+        }
+
+        private static void OnFramebufferResize(Vector2D<int> newSize)
+        {
+            Gl.Viewport(newSize);
+        }
+
+        private static void OnClose()
+        {
+            //Remember to dispose all the instances.
+            Vbo.Dispose();
+            Ebo.Dispose();
+            Vao.Dispose();
+            Shader.Dispose();
+        }
+
+        private static void KeyDown(IKeyboard arg1, Key arg2, int arg3)
+        {
+            switch (arg2)
+            {
+                case Key.Escape:
+                    window.Close();
+                    break;
+                case Key.Left:
+                    PlayerPosition.X -= 10f / window.Size.X;
+                    break;
+                case Key.Right:
+                    PlayerPosition.X += 10f / window.Size.X;
+                    break;
+                case Key.Up:
+                    PlayerPosition.Y -= 10f / window.Size.Y;
+                    break;
+                case Key.Down:
+                    PlayerPosition.Y += 10f / window.Size.Y;
+                    break;
+            }
+            
+            Console.WriteLine(PlayerPosition.ToString());
+        }
     }
-}
