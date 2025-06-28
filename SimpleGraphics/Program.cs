@@ -18,8 +18,9 @@ using Silk.NET.Maths;
         
         private static Shader Shader;
 
-        private static Vector2 PlayerPosition = new Vector2(0, 0);
-        private static Vector2 WindowSize = new Vector2(800, 600);
+        private static Vector3 PlayerPosition = new Vector3(0, 0, 5);
+        private static Vector2 WindowSize = new Vector2(600, 600);
+        private static float Focus = 1;
 
         private static readonly float[] Vertices =
         {
@@ -95,6 +96,7 @@ using Silk.NET.Maths;
             
             Shader.SetUniform("WindowSize", WindowSize);
             Shader.SetUniform("PlayerPosition", PlayerPosition);
+            Shader.SetUniform("Focus", Focus);
             
             Gl.DrawElements(PrimitiveType.Triangles, (uint) Indices.Length, DrawElementsType.UnsignedInt, null);
         }
@@ -126,10 +128,14 @@ using Silk.NET.Maths;
 
         private static void HandleConstantKeyPress()
         {
-            if(input.Keyboards[0].IsKeyPressed(Key.Left)) PlayerPosition.X -= 10f;
-            if(input.Keyboards[0].IsKeyPressed(Key.Right)) PlayerPosition.X += 10f;
-            if(input.Keyboards[0].IsKeyPressed(Key.Up)) PlayerPosition.Y -= 10f;
-            if(input.Keyboards[0].IsKeyPressed(Key.Down)) PlayerPosition.Y += 10f;
+            if(input.Keyboards[0].IsKeyPressed(Key.Left)) PlayerPosition.X -= 1f;
+            if(input.Keyboards[0].IsKeyPressed(Key.Right)) PlayerPosition.X += 1f;
+            if(input.Keyboards[0].IsKeyPressed(Key.Up)) PlayerPosition.Y -= 1f;
+            if(input.Keyboards[0].IsKeyPressed(Key.Down)) PlayerPosition.Y += 1f;
+
+            if (input.Keyboards[0].IsKeyPressed(Key.A)) Focus += 0.1f;
+            if (input.Keyboards[0].IsKeyPressed(Key.S)) Focus -= 0.1f;
+
             
             // if(input.Keyboards.All(x => x.IsKeyPressed(Key.Left))) PlayerPosition.X -= 10f;
         }

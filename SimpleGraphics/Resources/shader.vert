@@ -14,4 +14,5 @@ void main()
     gl_Position = vec4(aPosition, 1.0);
     // Assigin the texture coordinates without any modification to be recived in the fragment
     frag_texCoords = aTextureCoord;
+    
 }
