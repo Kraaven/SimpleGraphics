@@ -14,10 +14,12 @@ using Silk.NET.Maths;
         private static BufferObject<float> Vbo;
         private static BufferObject<uint> Ebo;
         private static VertexArrayObject<float, uint> Vao;
+        private static IInputContext input;
         
         private static Shader Shader;
 
         private static Vector2 PlayerPosition = new Vector2(0, 0);
+        private static Vector2 WindowSize = new Vector2(800, 600);
 
         private static readonly float[] Vertices =
         {
@@ -43,9 +45,12 @@ using Silk.NET.Maths;
             window = Window.Create(options);
 
             window.Load += OnLoad;
+            window.Update += Update;
             window.Render += OnRender;
             window.FramebufferResize += OnFramebufferResize;
             window.Closing += OnClose;
+            
+            
 
             window.Run();
 
@@ -55,7 +60,7 @@ using Silk.NET.Maths;
 
         private static void OnLoad()
         {
-            IInputContext input = window.CreateInput();
+            input = window.CreateInput();
             for (int i = 0; i < input.Keyboards.Count; i++)
             {
                 input.Keyboards[i].KeyDown += KeyDown;
@@ -75,6 +80,11 @@ using Silk.NET.Maths;
             Shader = new Shader(Gl, "Resources/shader.vert", "Resources/shader.frag");
         }
 
+        private static unsafe void Update(double delta)
+        {
+            HandleConstantKeyPress();
+        }
+
         private static unsafe void OnRender(double obj)
         {
             Gl.Clear((uint) ClearBufferMask.ColorBufferBit);
@@ -83,6 +93,7 @@ using Silk.NET.Maths;
             Vao.Bind();
             Shader.Use();
             
+            Shader.SetUniform("WindowSize", WindowSize);
             Shader.SetUniform("PlayerPosition", PlayerPosition);
             
             Gl.DrawElements(PrimitiveType.Triangles, (uint) Indices.Length, DrawElementsType.UnsignedInt, null);
@@ -91,6 +102,7 @@ using Silk.NET.Maths;
         private static void OnFramebufferResize(Vector2D<int> newSize)
         {
             Gl.Viewport(newSize);
+            WindowSize = new Vector2(newSize.X, newSize.Y);
         }
 
         private static void OnClose()
@@ -109,20 +121,16 @@ using Silk.NET.Maths;
                 case Key.Escape:
                     window.Close();
                     break;
-                case Key.Left:
-                    PlayerPosition.X -= 10f / window.Size.X;
-                    break;
-                case Key.Right:
-                    PlayerPosition.X += 10f / window.Size.X;
-                    break;
-                case Key.Up:
-                    PlayerPosition.Y -= 10f / window.Size.Y;
-                    break;
-                case Key.Down:
-                    PlayerPosition.Y += 10f / window.Size.Y;
-                    break;
             }
+        }
+
+        private static void HandleConstantKeyPress()
+        {
+            if(input.Keyboards[0].IsKeyPressed(Key.Left)) PlayerPosition.X -= 10f;
+            if(input.Keyboards[0].IsKeyPressed(Key.Right)) PlayerPosition.X += 10f;
+            if(input.Keyboards[0].IsKeyPressed(Key.Up)) PlayerPosition.Y -= 10f;
+            if(input.Keyboards[0].IsKeyPressed(Key.Down)) PlayerPosition.Y += 10f;
             
-            Console.WriteLine(PlayerPosition.ToString());
+            // if(input.Keyboards.All(x => x.IsKeyPressed(Key.Left))) PlayerPosition.X -= 10f;
         }
     }
